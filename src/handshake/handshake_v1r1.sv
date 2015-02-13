@@ -23,52 +23,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : handshake_output.sv
+    File         : handshake_v1r1.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : design patterns for handshake output module
+    Descriptions : design patterns for handshake v1r1 module
 
 ==============================================================================*/
 
-module handshake_output (
-  input  wire       clock,
-  input  wire       reset_n,
-  output reg  [7:0] o_value,
-  output reg        o_valid,
-  input  wire       i_ready
+module handshake_v1r1 #(VALUE_BITS = 8) (
+  input  wire                    clock,
+  input  wire                    reset_n,
+  input  wire [VALUE_BITS - 1:0] i_value,
+  input  wire                    i_valid,
+  output reg                     o_ready,
+  output reg  [VALUE_BITS - 1:0] o_value,
+  output reg                     o_valid,
+  input  wire                    i_ready
 );
 
-  reg        r_ticks;
+  reg  [VALUE_BITS - 1:0] r_value;
+  reg                     r_valid;
+  wire                    s_valid;
+  wire                    s_ready;
+  wire                    m_valid;
+  wire                    m_ready;
 
-  reg  [7:0] r_value;
-  reg        r_valid;
-  wire       s_ready;
-  wire       m_ready;
+  assign s_valid =  i_valid & o_ready;
+  assign s_ready = ~m_valid | i_ready;
 
   always_ff @(posedge clock, negedge reset_n) begin
     if (~reset_n) begin
-      r_ticks <= 1'b0;
+      o_ready <= 1'b0;
     end
     else begin
-      r_ticks <= $urandom_range(0, 5) ? 1'b0 : 1'b1;
+      o_ready <= s_ready;
     end
   end
-
-  assign s_ready = ~r_valid | m_ready;
 
   always_ff @(posedge clock, negedge reset_n) begin
     if (~reset_n) begin
       r_value <= '0;
       r_valid <= 1'b0;
     end
-    else if (s_ready) begin
-      if (r_ticks) begin
-        r_value <= r_value + 1'b1;
+    else if (o_ready | i_ready) begin
+      if (s_valid & ~m_ready) begin
+        r_value <= i_value;
       end
-      r_valid <= r_ticks;
+      r_valid <= s_valid & ~m_ready;
     end
   end
 
+  assign m_valid =  r_valid | o_valid;
   assign m_ready = ~o_valid | i_ready;
 
   always_ff @(posedge clock, negedge reset_n) begin
@@ -77,10 +82,10 @@ module handshake_output (
       o_valid <= 1'b0;
     end
     else if (m_ready) begin
-      if (r_valid) begin
-        o_value <= r_value;
+      if (r_valid | s_valid) begin
+        o_value <= r_valid ? r_value : i_value;
       end
-      o_valid <= r_valid;
+      o_valid <= r_valid | s_valid;
     end
   end
 

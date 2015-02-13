@@ -23,61 +23,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : handshake_inout.sv
+    File         : handshake_v0r0.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : design patterns for handshake inout module
+    Descriptions : design patterns for handshake v0r0 module
 
 ==============================================================================*/
 
-module handshake_inout (
-  input  wire       clock,
-  input  wire       reset_n,
-  input  wire [7:0] i_value,
-  input  wire       i_valid,
-  output wire       o_ready,
-  output reg  [7:0] o_value,
-  output reg        o_valid,
-  input  wire       i_ready
+module handshake_v0r0 #(VALUE_BITS = 8) (
+  input  wire                    clock,
+  input  wire                    reset_n,
+  input  wire [VALUE_BITS - 1:0] i_value,
+  input  wire                    i_valid,
+  output wire                    o_ready,
+  output wire [VALUE_BITS - 1:0] o_value,
+  output wire                    o_valid,
+  input  wire                    i_ready
 );
 
-  reg  [7:0] r_value;
-  reg        r_valid;
-  wire       s_valid;
-  wire       s_ready;
-  wire       m_ready;
+  assign o_ready = i_ready;
 
-  assign s_valid =  i_valid & o_ready;
-  assign s_ready = ~r_valid | m_ready;
-
-  assign o_ready = s_ready;
-
-  always_ff @(posedge clock, negedge reset_n) begin
-    if (~reset_n) begin
-      r_value <= '0;
-      r_valid <= 1'b0;
-    end
-    else if (s_ready) begin
-      if (s_valid) begin
-        r_value <= i_value;
-      end
-      r_valid <= s_valid;
-    end
-  end
-
-  assign m_ready = ~o_valid | i_ready;
-
-  always_ff @(posedge clock, negedge reset_n) begin
-    if (~reset_n) begin
-      o_value <= '0;
-      o_valid <= 1'b0;
-    end
-    else if (m_ready) begin
-      if (r_valid) begin
-        o_value <= r_value;
-      end
-      o_valid <= r_valid;
-    end
-  end
+  assign o_value = o_valid ? i_value : '0;
+  assign o_valid = i_valid & o_ready;
 
 endmodule

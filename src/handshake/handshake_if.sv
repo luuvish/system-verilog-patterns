@@ -23,46 +23,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : tb_handshake_output.sv
+    File         : handshake_if.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : testbench for handshake output module
+    Descriptions : handshake interface
 
 ==============================================================================*/
 
-`timescale 1ns / 10ps
+interface handshake_if #(VALUE_BITS = 8, MAX_DELAY = 10) (
+  input logic clock, reset_n
+);
 
-module tb_handshake_output;
+  typedef logic [VALUE_BITS - 1:0] value_t;
 
-  localparam integer CLOCK_RERIOD = 10; // 100Mhz -> 10ns
-
-  typedef bit [7:0] value_t;
-
-  logic       clock;
-  logic       reset_n;
-  logic [7:0] o_value;
-  logic       o_valid;
-  logic       i_ready;
-
-  handshake_output dut (.*);
+  logic [VALUE_BITS - 1:0] i_value;
+  logic                    i_valid;
+  logic                    o_ready;
+  logic [VALUE_BITS - 1:0] o_value;
+  logic                    o_valid;
+  logic                    i_ready;
 
   clocking cb @(posedge clock);
+    output i_value, i_valid;
+    input  o_ready;
     input  o_value, o_valid;
     output i_ready;
   endclocking
 
   task reset ();
+    cb.i_value <= '0;
+    cb.i_valid <= 1'b0;
     cb.i_ready <= 1'b0;
+  endtask
 
-    reset_n = 1'b1;
-    repeat (10) @(cb);
-    reset_n = 1'b0;
-    repeat (10) @(cb);
-    reset_n = 1'b1;
+  task ticks (input int tick);
+    repeat (tick) @(cb);
+  endtask
+
+  task valid (input value_t value);
+    ticks(random());
+
+    cb.i_value <= value;
+    cb.i_valid <= 1'b1;
+    @(cb);
+
+    wait (cb.o_ready == 1'b1);
+    cb.i_value <= '0;
+    cb.i_valid <= 1'b0;
   endtask
 
   task ready (output value_t value);
-    repeat (random()) @(cb);
+    ticks(random());
 
     cb.i_ready <= 1'b1;
     @(cb);
@@ -72,38 +83,9 @@ module tb_handshake_output;
     cb.i_ready <= 1'b0;
   endtask
 
-  initial begin
-    clock = 1'b0;
-    forever #(CLOCK_RERIOD / 2) clock = ~clock;
-  end
-
-  initial begin
-    $shm_open("waveform");
-    $shm_probe("arms");
-
-    reset();
-
-    repeat (100) begin
-      static value_t count = '0;
-      automatic value_t value;
-      ++count;
-      ready(value);
-      print(value);
-      if (value != count) begin
-        $display("%0dns: o_value error %0h != %0h", $time, value, count);
-        $finish;
-      end
-    end
-
-    $finish;
-  end
-
-  function automatic void print (input value_t value);
-    $display("%0dns: o_value -> %0h", $time, value);
-  endfunction
-
   function automatic int random ();
-    return $urandom_range(0, 1) ? 0 : $urandom_range(1, 10);
+    int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
+    return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction
 
-endmodule
+endinterface

@@ -23,77 +23,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : handshake_ff_output.sv
+    File         : handshake_v1r0.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : design patterns for handshake flipflop output module
+    Descriptions : design patterns for handshake v1r0 module
 
 ==============================================================================*/
 
-module handshake_ff_output (
-  input  wire       clock,
-  input  wire       reset_n,
-  output reg  [7:0] o_value,
-  output reg        o_valid,
-  input  wire       i_ready
+module handshake_v1r0 #(VALUE_BITS = 8) (
+  input  wire                    clock,
+  input  wire                    reset_n,
+  input  wire [VALUE_BITS - 1:0] i_value,
+  input  wire                    i_valid,
+  output wire                    o_ready,
+  output reg  [VALUE_BITS - 1:0] o_value,
+  output reg                     o_valid,
+  input  wire                    i_ready
 );
 
-  reg        r_ticks;
-
-  reg  [7:0] r_value;
-  reg        r_valid;
-  reg        r_ready;
-  wire       s_valid;
-  wire       s_ready;
-  wire       m_valid;
-  wire       m_ready;
-
-  always_ff @(posedge clock, negedge reset_n) begin
-    if (~reset_n) begin
-      r_ticks <= 1'b0;
-    end
-    else begin
-      r_ticks <= $urandom_range(0, 5) ? 1'b0 : 1'b1;
-    end
-  end
-
-  assign s_valid =  r_valid & r_ready;
-  assign s_ready = ~r_valid | r_ready;
-
-  always_ff @(posedge clock, negedge reset_n) begin
-    if (~reset_n) begin
-      r_ready <= 1'b0;
-    end
-    else begin
-      r_ready <= m_ready;
-    end
-  end
-
-  always_ff @(posedge clock, negedge reset_n) begin
-    if (~reset_n) begin
-      r_value <= '0;
-      r_valid <= 1'b0;
-    end
-    else if (s_ready & m_ready) begin
-      if (r_ticks) begin
-        r_value <= r_value + 1'b1;
-      end
-      r_valid <= r_ticks;
-    end
-  end
-
-  assign m_ready = ~o_valid | i_ready;
+  assign o_ready = ~o_valid | i_ready;
 
   always_ff @(posedge clock, negedge reset_n) begin
     if (~reset_n) begin
       o_value <= '0;
       o_valid <= 1'b0;
     end
-    else if (m_ready) begin
-      if (s_valid) begin
-        o_value <= r_value;
+    else if (o_ready) begin
+      if (i_valid) begin
+        o_value <= i_value;
       end
-      o_valid <= s_valid;
+      o_valid <= i_valid;
     end
   end
 

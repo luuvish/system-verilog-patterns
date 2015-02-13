@@ -23,73 +23,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : tb_handshake_ff_inout.sv
+    File         : tb_handshake_v0r0.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : testbench for handshake flipflop inout module
+    Descriptions : testbench for handshake v0r0 module
 
 ==============================================================================*/
 
-`timescale 1ns / 10ps
+module tb_handshake_v0r0;
 
-module tb_handshake_ff_inout;
+  localparam integer CLOCK_RERIOD = 10, // 100Mhz -> 10ns
+                     VALUE_BITS = 8,
+                     MAX_DELAY = 10;
 
-  localparam integer CLOCK_RERIOD = 10; // 100Mhz -> 10ns
+  typedef bit [VALUE_BITS - 1:0] value_t;
 
-  typedef bit [7:0] value_t;
+  logic clock, reset_n;
 
-  logic       clock;
-  logic       reset_n;
-  logic [7:0] i_value;
-  logic       i_valid;
-  logic       o_ready;
-  logic [7:0] o_value;
-  logic       o_valid;
-  logic       i_ready;
+  handshake_if #(VALUE_BITS, MAX_DELAY) hif (clock, reset_n);
 
-  handshake_ff_inout dut (.*);
-
-  clocking cb @(posedge clock);
-    output i_value, i_valid;
-    input  o_ready;
-    input  o_value, o_valid;
-    output i_ready;
-  endclocking
-
-  task reset ();
-    cb.i_value <= '0;
-    cb.i_valid <= 1'b0;
-    cb.i_ready <= 1'b0;
-
-    reset_n = 1'b1;
-    repeat (10) @(cb);
-    reset_n = 1'b0;
-    repeat (10) @(cb);
-    reset_n = 1'b1;
-  endtask
-
-  task valid (input value_t value);
-    repeat (random()) @(cb);
-
-    cb.i_value <= value;
-    cb.i_valid <= 1'b1;
-    @(cb);
-
-    wait (cb.o_ready == 1'b1);
-    cb.i_value <= '0;
-    cb.i_valid <= 1'b0;
-  endtask
-
-  task ready (output value_t value);
-    repeat (random()) @(cb);
-
-    cb.i_ready <= 1'b1;
-    @(cb);
-
-    wait (cb.o_valid == 1'b1);
-    value = cb.o_value;
-    cb.i_ready <= 1'b0;
-  endtask
+  handshake_v0r0 #(VALUE_BITS) dut (
+    .clock   (hif.clock),
+    .reset_n (hif.reset_n),
+    .i_value (hif.i_value),
+    .i_valid (hif.i_valid),
+    .o_ready (hif.o_ready),
+    .o_value (hif.o_value),
+    .o_valid (hif.o_valid),
+    .i_ready (hif.i_ready)
+  );
 
   initial begin
     clock = 1'b0;
@@ -99,23 +61,34 @@ module tb_handshake_ff_inout;
   initial begin
     automatic mailbox #(value_t) counts = new;
 
-    $shm_open("waveform");
-    $shm_probe("arms");
+    if ($test$plusargs("waveform")) begin
+      $shm_open("waveform");
+      $shm_probe("arms");
+    end
 
-    reset();
+    hif.reset();
+    reset_n = 1'b1;
+    hif.ticks(10);
+    reset_n = 1'b0;
+    hif.ticks(10);
+    reset_n = 1'b1;
 
     fork
       repeat (100) begin
         static value_t count = '0;
         automatic value_t value = ++count;
+
         counts.put(count);
-        valid(value);
+        hif.valid(value);
       end
       repeat (100) begin
         automatic value_t value, count;
-        ready(value);
-        print(value);
+        hif.ready(value);
         counts.get(count);
+
+        if ($test$plusargs("verbose")) begin
+          $display("%0dns: o_value -> %0h", $time, value);
+        end
         if (value != count) begin
           $display("%0dns: o_value error %0h != %0h", $time, value, count);
           $finish;
@@ -125,13 +98,5 @@ module tb_handshake_ff_inout;
 
     $finish;
   end
-
-  function automatic void print (input value_t value);
-    $display("%0dns: o_value -> %0h", $time, value);
-  endfunction
-
-  function automatic int random ();
-    return $urandom_range(0, 1) ? 0 : $urandom_range(1, 10);
-  endfunction
 
 endmodule
