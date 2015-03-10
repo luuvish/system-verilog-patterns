@@ -6,7 +6,7 @@
 
 The MIT License (MIT)
 
-Copyright (c) 2015 Luuvish Hwang
+Copyright (c) 2015 Luuvish
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -27,10 +27,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : pipeline_v1r0.sv
+    File         : test.py
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : Script for unit test of fbc testbench
+    Descriptions : Script for design patterns testbench
 
 ================================================================================
 '''
@@ -44,40 +44,24 @@ IRUN = 'irun'
 NCFLAGS = ['-nocopyright', '-nolog']
 
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
-
-SRC_DIR  = os.path.join(ROOT_DIR, 'src')
 SPEC_DIR = os.path.join(ROOT_DIR, 'spec')
 TEST_DIR = os.path.join(ROOT_DIR, 'test')
 
+tools = {
+  'irun': {
+    'options': ['-q', '-f', os.path.join(SPEC_DIR, 'tb_direct_test.f')],
+    'files': [],
+    'top': None
+  }
+}
+
 specs = {
-  'options': {
-    'irun': ['-access', 'r', '-timescale', '1ns/10ps'],
-    'files': [os.path.join(SRC_DIR, 'handshake', 'handshake_if.sv')]
+  'tb_handshake_direct_test': {
+    'top': 'worklib.tb_handshake_direct_test:sv'
   },
-  'tb_handshake_v0r0': [
-    os.path.join(SRC_DIR, 'handshake', 'handshake_v0r0.sv'),
-    os.path.join(SPEC_DIR, 'handshake', 'tb_handshake_v0r0.sv')
-  ],
-  'tb_handshake_v1r0': [
-    os.path.join(SRC_DIR, 'handshake', 'handshake_v1r0.sv'),
-    os.path.join(SPEC_DIR, 'handshake', 'tb_handshake_v1r0.sv')
-  ],
-  'tb_handshake_v1r1': [
-    os.path.join(SRC_DIR, 'handshake', 'handshake_v1r1.sv'),
-    os.path.join(SPEC_DIR, 'handshake', 'tb_handshake_v1r1.sv')
-  ],
-  'tb_pipeline_v0r0': [
-    os.path.join(SRC_DIR, 'pipeline', 'pipeline_v0r0.sv'),
-    os.path.join(SPEC_DIR, 'pipeline', 'tb_pipeline_v0r0.sv')
-  ],
-  'tb_pipeline_v1r0': [
-    os.path.join(SRC_DIR, 'pipeline', 'pipeline_v1r0.sv'),
-    os.path.join(SPEC_DIR, 'pipeline', 'tb_pipeline_v1r0.sv')
-  ],
-  'tb_pipeline_v1r1': [
-    os.path.join(SRC_DIR, 'pipeline', 'pipeline_v1r1.sv'),
-    os.path.join(SPEC_DIR, 'pipeline', 'tb_pipeline_v1r1.sv')
-  ]
+  'tb_queue_direct_test': {
+    'top': 'worklib.tb_queue_direct_test:sv'
+  }
 }
 
 
@@ -87,14 +71,15 @@ def main():
   os.chdir(TEST_DIR)
 
   arguments = ['+verbose', '+waveform']
-  for key in specs.keys():
-    if key is not 'options':
-      irun(specs.get(key), arguments)
+  for (k, v) in specs.iteritems():
+    irun(v, arguments)
 
 
 def irun(sets, args=[]):
-  options = specs['options']['irun'] + specs['options']['files']
-  subprocess.call([IRUN] + NCFLAGS + options + sets + args)
+  options = tools['irun']['options']
+  files = tools['irun']['files']
+  top = ['-top', sets['top']]
+  subprocess.call([IRUN] + NCFLAGS + options + args + files + top)
 
 
 if __name__ == '__main__':

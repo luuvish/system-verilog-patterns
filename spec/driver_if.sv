@@ -2,7 +2,7 @@
 
 The MIT License (MIT)
 
-Copyright (c) 2015 Luuvish Hwang
+Copyright (c) 2015 Luuvish
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -23,27 +23,70 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : handshake_v0r0.sv
+    File         : drive_if.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : design patterns for handshake v0r0 module
+    Descriptions : bulk driver interface
 
 ==============================================================================*/
 
-module handshake_v0r0 #(VALUE_BITS = 8) (
-  input  wire                    clock,
-  input  wire                    reset_n,
-  input  wire [VALUE_BITS - 1:0] i_value,
-  input  wire                    i_valid,
-  output wire                    o_ready,
-  output wire [VALUE_BITS - 1:0] o_value,
-  output wire                    o_valid,
-  input  wire                    i_ready
-);
+interface driver_if #(BITS = 8) (interface io);
 
-  assign o_ready = i_ready;
+  typedef logic [BITS - 1:0] value_t;
 
-  assign o_value = o_valid ? i_value : '0;
-  assign o_valid = i_valid & o_ready;
+  logic [BITS - 1:0] m_value;
+  logic              m_valid;
+  logic              m_ready;
 
-endmodule
+  logic [BITS - 1:0] s_value;
+  logic              s_valid;
+  logic              s_ready;
+
+  assign io.slave.value = m_value;
+  assign io.slave.valid = m_valid;
+  assign m_ready = io.slave.ready;
+
+  assign s_value = io.master.value;
+  assign s_valid = io.master.valid;
+  assign io.master.ready = s_ready;
+
+  clocking m_cb @(posedge io.clock);
+    output m_value, m_valid;
+    input  m_ready;
+  endclocking
+
+  clocking s_cb @(posedge io.clock);
+    input  s_value, s_valid;
+    output s_ready;
+  endclocking
+
+  task clear ();
+    m_cb.m_value <= '0;
+    m_cb.m_valid <= 1'b0;
+    s_cb.s_ready <= 1'b0;
+  endtask
+
+  task ticks (input int tick);
+    repeat (tick) @(m_cb);
+  endtask
+
+  task valid (input value_t value);
+    m_cb.m_value <= value;
+    m_cb.m_valid <= 1'b1;
+    @(m_cb);
+
+    wait (m_cb.m_ready == 1'b1);
+    m_cb.m_value <= '0;
+    m_cb.m_valid <= 1'b0;
+  endtask
+
+  task ready (output value_t value);
+    s_cb.s_ready <= 1'b1;
+    @(s_cb);
+
+    wait (s_cb.s_valid == 1'b1);
+    value = s_cb.s_value;
+    s_cb.s_ready <= 1'b0;
+  endtask
+
+endinterface
