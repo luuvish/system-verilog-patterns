@@ -89,11 +89,11 @@ interface queue_if #(NUMS = 10, BITS = 8, VALID = 0, READY = 0) (
   end
 
   generate
+    logic bypass;
 
     if (VALID == 0 && READY == 0) begin : v0r0
-      logic bypass;
+      assign bypass = s_valid & (q_m_idx == q_s_idx);
 
-      assign bypass  = s_valid & m_ready & (q_m_idx == q_s_idx);
       assign s_ready = q_m_idx != q_s_idx + 1'b1;
 
       assign m_value = bypass ? s_value : q_queue[q_m_idx];
@@ -101,9 +101,8 @@ interface queue_if #(NUMS = 10, BITS = 8, VALID = 0, READY = 0) (
     end
 
     if (VALID == 1 && READY == 0) begin : v1r0
-      logic bypass;
+      assign bypass = s_valid & (q_m_inc == q_s_idx);
 
-      assign bypass  = s_valid & (q_m_inc == q_s_idx);
       assign s_ready = q_m_idx != q_s_idx + 1'b1;
 
       always_ff @(posedge clock, negedge reset_n) begin
@@ -119,8 +118,6 @@ interface queue_if #(NUMS = 10, BITS = 8, VALID = 0, READY = 0) (
     end
 
     if (VALID == 1 && READY == 1) begin : v1r1
-      logic bypass;
-
       assign bypass = s_valid & (q_m_inc == q_s_idx);
 
       always_ff @(posedge clock, negedge reset_n) begin

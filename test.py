@@ -61,6 +61,9 @@ specs = {
   },
   'tb_queue_direct_test': {
     'top': 'worklib.tb_queue_direct_test:sv'
+  },
+  'tb_pipeline_direct_test': {
+    'top': 'worklib.tb_pipeline_direct_test:sv'
   }
 }
 

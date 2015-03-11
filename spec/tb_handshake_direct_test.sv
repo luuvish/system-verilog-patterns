@@ -41,13 +41,13 @@ module tb_handshake_direct_test;
 
   logic clock, reset_n;
 
-  handshake_if #(BITS, 0, 0) io_v0r0 (clock, reset_n);
-  handshake_if #(BITS, 1, 0) io_v1r0 (clock, reset_n);
-  handshake_if #(BITS, 1, 1) io_v1r1 (clock, reset_n);
+  handshake_if #(BITS, 0, 0) handshake_v0r0 (clock, reset_n);
+  handshake_if #(BITS, 1, 0) handshake_v1r0 (clock, reset_n);
+  handshake_if #(BITS, 1, 1) handshake_v1r1 (clock, reset_n);
 
-  driver_if #(BITS) driver_v0r0 (io_v0r0);
-  driver_if #(BITS) driver_v1r0 (io_v1r0);
-  driver_if #(BITS) driver_v1r1 (io_v1r1);
+  driver_if #(BITS) driver_v0r0 (handshake_v0r0);
+  driver_if #(BITS) driver_v1r0 (handshake_v1r0);
+  driver_if #(BITS) driver_v1r1 (handshake_v1r1);
 
   task automatic reset ();
     driver_v0r0.clear();
@@ -79,9 +79,9 @@ module tb_handshake_direct_test;
           2'b11: driver_v1r1.ticks(random());
         endcase
         case ({v, r})
-          2'b00: driver_v0r0.valid(org);
-          2'b10: driver_v1r0.valid(org);
-          2'b11: driver_v1r1.valid(org);
+          2'b00: driver_v0r0.set(org);
+          2'b10: driver_v1r0.set(org);
+          2'b11: driver_v1r1.set(org);
         endcase
       end
       repeat (100) begin
@@ -92,9 +92,9 @@ module tb_handshake_direct_test;
           2'b11: driver_v1r1.ticks(random());
         endcase
         case ({v, r})
-          2'b00: driver_v0r0.ready(val);
-          2'b10: driver_v1r0.ready(val);
-          2'b11: driver_v1r1.ready(val);
+          2'b00: driver_v0r0.get(val);
+          2'b10: driver_v1r0.get(val);
+          2'b11: driver_v1r1.get(val);
         endcase
         queue.get(org);
 

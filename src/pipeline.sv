@@ -2,7 +2,7 @@
 
 The MIT License (MIT)
 
-Copyright (c) 2015 Luuvish Hwang
+Copyright (c) 2015 Luuvish
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -23,54 +23,62 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : pipeline_v0r0.sv
+    File         : pipeline.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : design patterns for pipeline v0r0 module
+    Descriptions : design patterns for pipeline module
 
 ==============================================================================*/
 
-module pipeline_v0r0 #(VALUE_BITS = 8, STATE_BITS = 8) (
-  input  wire                    clock,
-  input  wire                    reset_n,
-  input  wire [VALUE_BITS - 1:0] i_value,
-  input  wire                    i_valid,
-  output wire                    o_ready,
-  output reg  [VALUE_BITS - 1:0] o_value,
-  output reg                     o_valid,
-  input  wire                    i_ready
+module pipeline #(NUMS = 10, BITS = 8) (
+  interface i, o
 );
 
-  reg  [STATE_BITS - 1:0] r_state;
-  reg  [STATE_BITS - 1:0] n_state;
-  reg  [VALUE_BITS - 1:0] n_value;
-  reg                     w_ready;
+  typedef logic [BITS - 1:0] value_t;
 
-//always_comb begin
-//  stage(r_state, i_value, n_state, n_value, w_ready);
-//end
+  typedef struct {
+    logic [BITS - 1:0] value;
+    logic              valid;
+    logic              ready;
+  } state_t;
 
-  always_ff @(posedge clock, negedge reset_n) begin
-    if (~reset_n) begin
-      r_state <= '0;
-    end
-    else if (i_valid & o_ready) begin
-      r_state <= n_state;
+  state_t stages [0:NUMS];
+
+  assign stages[0].value = i.master.value;
+  assign stages[0].valid = i.master.valid;
+  assign i.master.ready = stages[0].ready;
+
+  always_comb begin
+    for (int i = NUMS; i >= 1; i--) begin
+      stages[i - 1].ready = ~stages[i].valid | stages[i].ready;
     end
   end
 
-  assign o_ready = i_ready & w_ready;
+  always_ff @(posedge i.clock, negedge i.reset_n) begin
+    if (!i.reset_n) begin
+      for (int i = 1; i <= NUMS; i++) begin
+        stages[i].value <= '0;
+        stages[i].valid <= 1'b0;
+      end
+    end
+    else begin
+      for (int i = 1; i <= NUMS; i++) begin
+        if (stages[i - 1].ready) begin
+          if (stages[i - 1].valid) begin
+            stages[i].value <= stage(stages[i - 1].value);
+          end
+          stages[i].valid <= stages[i - 1].valid & stages[i - 1].ready;
+        end
+      end
+    end
+  end
 
-  assign o_value = o_valid ? n_value : '0;
-  assign o_valid = i_valid & o_ready;
+  assign o.slave.value = stages[NUMS].value;
+  assign o.slave.valid = stages[NUMS].valid;
+  assign stages[NUMS].ready = o.slave.ready;
 
-  task stage (
-    input  logic [STATE_BITS - 1:0] i_state,
-    input  logic [VALUE_BITS - 1:0] i_value,
-    output logic [STATE_BITS - 1:0] o_state,
-    output logic [VALUE_BITS - 1:0] o_value,
-    output logic                    o_ready
-  );
-  endtask
+  function automatic value_t stage (input value_t value);
+    return value;
+  endfunction
 
 endmodule

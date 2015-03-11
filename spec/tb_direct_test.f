@@ -40,10 +40,14 @@
 -incdir ../src/
 ../src/handshake_if.sv
 ../src/queue_if.sv
+../src/pipeline.sv
 -incdir ../spec/
 ../spec/driver_if.sv
+../spec/setter_if.sv
+../spec/getter_if.sv
 ../spec/tb_handshake_direct_test.sv
 ../spec/tb_queue_direct_test.sv
+../spec/tb_pipeline_direct_test.sv
 
 -access +r
 -timescale 1ns/10ps

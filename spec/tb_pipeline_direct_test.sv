@@ -23,14 +23,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : tb_queue_direct_test.sv
+    File         : tb_pipeline_direct_test.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : testbench for queue interface without UVM
+    Descriptions : testbench for pipeline module without UVM
 
 ==============================================================================*/
 
-module tb_queue_direct_test;
+module tb_pipeline_direct_test;
 
   localparam integer CLOCK_PERIOD = 10, // 100Mhz -> 10ns
                      MAX_RANDOM_DELAY = 10;
@@ -41,31 +41,30 @@ module tb_queue_direct_test;
 
   logic clock, reset_n;
 
-  queue_if #(NUMS, BITS, 0, 0) queue_v0r0 (clock, reset_n);
-  queue_if #(NUMS, BITS, 1, 0) queue_v1r0 (clock, reset_n);
-  queue_if #(NUMS, BITS, 1, 1) queue_v1r1 (clock, reset_n);
+  handshake_if #(BITS, 0, 0) pi (clock, reset_n);
+  handshake_if #(BITS, 0, 0) po (clock, reset_n);
 
-  driver_if #(BITS) driver_v0r0 (queue_v0r0);
-  driver_if #(BITS) driver_v1r0 (queue_v1r0);
-  driver_if #(BITS) driver_v1r1 (queue_v1r1);
+  setter_if #(BITS) setter (pi);
+  getter_if #(BITS) getter (po);
+
+  pipeline #(NUMS, BITS) pipeline (.i(pi), .o(po));
 
   task automatic reset ();
-    driver_v0r0.clear();
-    driver_v1r0.clear();
-    driver_v1r1.clear();
+    setter.clear();
+    getter.clear();
 
     reset_n = 1'b1;
-    driver_v0r0.ticks(10);
+    setter.ticks(10);
     reset_n = 1'b0;
-    driver_v0r0.ticks(10);
+    setter.ticks(10);
     reset_n = 1'b1;
   endtask
 
-  task automatic test (input bit v = 0, r = 0, bit verbose);
+  task automatic test (input bit verbose);
     mailbox #(value_t) queue = new;
 
     if (verbose) begin
-      $display("test queue_if #(VALID=%0d, READY=%0d)", v, r);
+      $display("test pipeline");
     end
 
     fork
@@ -73,29 +72,13 @@ module tb_queue_direct_test;
         value_t org = $urandom_range(0, 100);
 
         queue.put(org);
-        case ({v, r})
-          2'b00: driver_v0r0.ticks(random());
-          2'b10: driver_v1r0.ticks(random());
-          2'b11: driver_v1r1.ticks(random());
-        endcase
-        case ({v, r})
-          2'b00: driver_v0r0.set(org);
-          2'b10: driver_v1r0.set(org);
-          2'b11: driver_v1r1.set(org);
-        endcase
+        setter.ticks(random());
+        setter.set(org);
       end
       repeat (100) begin
         value_t val, org;
-        case ({v, r})
-          2'b00: driver_v0r0.ticks(random());
-          2'b10: driver_v1r0.ticks(random());
-          2'b11: driver_v1r1.ticks(random());
-        endcase
-        case ({v, r})
-          2'b00: driver_v0r0.get(val);
-          2'b10: driver_v1r0.get(val);
-          2'b11: driver_v1r1.get(val);
-        endcase
+        getter.ticks(random());
+        getter.get(val);
         queue.get(org);
 
         if (verbose) begin
@@ -126,9 +109,7 @@ module tb_queue_direct_test;
 
     reset();
 
-    test(0, 0, verbose);
-    test(1, 0, verbose);
-    test(1, 1, verbose);
+    test(verbose);
 
     $finish;
   end

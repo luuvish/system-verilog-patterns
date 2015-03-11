@@ -23,70 +23,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
 
-    File         : driver_if.sv
+    File         : getter_if.sv
     Author(s)    : luuvish (github.com/luuvish/system-verilog-patterns)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : bulk driver interface
+    Descriptions : bulk getter interface
 
 ==============================================================================*/
 
-interface driver_if #(BITS = 8) (interface io);
+interface getter_if #(BITS = 8) (interface i);
 
   typedef logic [BITS - 1:0] value_t;
 
-  logic [BITS - 1:0] m_value;
-  logic              m_valid;
-  logic              m_ready;
+  logic [BITS - 1:0] value;
+  logic              valid;
+  logic              ready;
 
-  logic [BITS - 1:0] s_value;
-  logic              s_valid;
-  logic              s_ready;
+  assign value = i.master.value;
+  assign valid = i.master.valid;
+  assign i.master.ready = ready;
 
-  assign io.slave.value = m_value;
-  assign io.slave.valid = m_valid;
-  assign m_ready = io.slave.ready;
-
-  assign s_value = io.master.value;
-  assign s_valid = io.master.valid;
-  assign io.master.ready = s_ready;
-
-  clocking m_cb @(posedge io.clock);
-    output m_value, m_valid;
-    input  m_ready;
-  endclocking
-
-  clocking s_cb @(posedge io.clock);
-    input  s_value, s_valid;
-    output s_ready;
+  clocking cb @(posedge i.clock);
+    input  value, valid;
+    output ready;
   endclocking
 
   task clear ();
-    m_cb.m_value <= '0;
-    m_cb.m_valid <= 1'b0;
-    s_cb.s_ready <= 1'b0;
+    cb.ready <= 1'b0;
   endtask
 
   task ticks (input int tick);
-    repeat (tick) @(m_cb);
-  endtask
-
-  task set (input value_t value);
-    m_cb.m_value <= value;
-    m_cb.m_valid <= 1'b1;
-    @(m_cb);
-
-    wait (m_cb.m_ready == 1'b1);
-    m_cb.m_value <= '0;
-    m_cb.m_valid <= 1'b0;
+    repeat (tick) @(cb);
   endtask
 
   task get (output value_t value);
-    s_cb.s_ready <= 1'b1;
-    @(s_cb);
+    cb.ready <= 1'b1;
+    @(cb);
 
-    wait (s_cb.s_valid == 1'b1);
-    value = s_cb.s_value;
-    s_cb.s_ready <= 1'b0;
+    wait (cb.valid == 1'b1);
+    value = cb.value;
+    cb.ready <= 1'b0;
   endtask
 
 endinterface
